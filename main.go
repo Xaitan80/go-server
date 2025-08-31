@@ -8,12 +8,13 @@ import (
 func main() {
 	const port = "8080"
 
-	// Serve files from the current directory
-	fs := http.FileServer(http.Dir("."))
-
-	// Handle root URL by serving files
 	mux := http.NewServeMux()
-	mux.Handle("/", fs)
+
+	// health endpoint
+	mux.HandleFunc("/healthz", readinessHandler)
+
+	// file server endpoint
+	mux.Handle("/app/", fileServerHandler())
 
 	srv := &http.Server{
 		Addr:    ":" + port,
