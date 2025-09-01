@@ -1,10 +1,10 @@
-package main
+package api
 
 import (
 	"net/http"
 )
 
-func readinessHandler(w http.ResponseWriter, r *http.Request) {
+func ReadinessHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
