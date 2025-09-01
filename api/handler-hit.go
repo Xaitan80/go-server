@@ -1,21 +1,20 @@
-package main
+package api
 
 import (
 	"fmt"
 	"net/http"
+	"sync/atomic"
 )
 
-// hitsHandler is now a method on *apiConfig
-func (cfg *apiConfig) hitsHandler() http.HandlerFunc {
-
+// HitsHandler returns a handler function using the provided config
+func HitsHandler(cfg *atomic.Int32) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		hits := cfg.fileserverHits.Load() // safe read
-		fmt.Fprintf(w, "Hits: %d", hits)  // write as plain text
-
+		hits := cfg.Load()
+		fmt.Fprintf(w, "Hits: %d", hits)
 	}
 }

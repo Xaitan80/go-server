@@ -4,6 +4,9 @@ import (
 	"log"
 	"net/http"
 	"sync/atomic"
+
+	"github.com/xaitan80/go-server/api"
+	"github.com/xaitan80/go-server/app"
 )
 
 type apiConfig struct {
@@ -29,15 +32,15 @@ func main() {
 
 	// hit endpoint
 
-	mux.Handle("/metrics", apiCfg.hitsHandler())
-	mux.Handle("/reset", apiCfg.resetHandler())
+	mux.Handle("/api/metrics", api.HitsHandler(&apiCfg.fileserverHits))
+	mux.Handle("/api/reset", api.ResetHandler(&apiCfg.fileserverHits))
 
 	// health endpoint
-	mux.HandleFunc("/healthz", readinessHandler)
+	mux.HandleFunc("/api/healthz", api.ReadinessHandler)
 
 	// fileserver with middleware
 
-	mux.Handle("/app/", apiCfg.middlewareMetricsInc(fileServerHandler()))
+	mux.Handle("/app/", apiCfg.middlewareMetricsInc(app.FileServerHandler()))
 
 	srv := &http.Server{
 		Addr:    ":" + port,
