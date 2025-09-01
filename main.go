@@ -64,7 +64,8 @@ func main() {
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(app.FileServerHandler()))
 
 	// API endpoints
-	mux.HandleFunc("/api/validate_chirp", api.ValidateChirpHandler)
+	mux.HandleFunc("/api/chirps", api.ChirpsHandler(queries))
+
 	mux.HandleFunc("/api/users", api.CreateUserHandler(queries))
 
 	// Start the server
