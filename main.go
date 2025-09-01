@@ -32,8 +32,8 @@ func main() {
 
 	// hit endpoint
 
-	mux.Handle("/api/metrics", api.HitsHandler(&apiCfg.fileserverHits))
-	mux.Handle("/api/reset", api.ResetHandler(&apiCfg.fileserverHits))
+	mux.Handle("/admin/metrics", api.HitsHandler(&apiCfg.fileserverHits))
+	mux.Handle("/admin/reset", api.ResetHandler(&apiCfg.fileserverHits))
 
 	// health endpoint
 	mux.HandleFunc("/api/healthz", api.ReadinessHandler)
