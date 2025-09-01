@@ -7,13 +7,16 @@ import (
 	"os"
 	"sync/atomic"
 
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/xaitan80/go-server/api"
 	"github.com/xaitan80/go-server/app"
+	"github.com/xaitan80/go-server/internal/database"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	Platform       string
 }
 
 // Middleware that increments the fileserver hit counter
@@ -25,6 +28,10 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 }
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+		log.Println("Warning: .env file not found, relying on OS environment variables")
+	}
+
 	const port = "8080"
 
 	// Database setup
@@ -35,15 +42,20 @@ func main() {
 	}
 	defer db.Close()
 
+	// Create SQLC queries instance
+	queries := database.New(db)
+
 	// Create the serve mux
 	mux := http.NewServeMux()
 
-	// Instance to track hits
-	apiCfg := &apiConfig{}
+	// Instance to track hits and platform
+	apiCfg := &apiConfig{
+		Platform: os.Getenv("PLATFORM"),
+	}
 
 	// Admin endpoints
 	mux.Handle("/admin/metrics", api.HitsHandler(&apiCfg.fileserverHits))
-	mux.Handle("/admin/reset", api.ResetHandler(&apiCfg.fileserverHits))
+	mux.HandleFunc("/admin/reset", api.ResetHandler(queries, apiCfg.Platform))
 
 	// Health endpoint
 	mux.HandleFunc("/api/healthz", api.ReadinessHandler)
@@ -51,12 +63,14 @@ func main() {
 	// Fileserver with middleware
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(app.FileServerHandler()))
 
-	// API endpoint: chirp validation
+	// API endpoints
 	mux.HandleFunc("/api/validate_chirp", api.ValidateChirpHandler)
+	mux.HandleFunc("/api/users", api.CreateUserHandler(queries))
 
 	// Start the server
 	srv := &http.Server{
-		Addr:    ":" + port,
+		Addr: ":" + port,
+
 		Handler: mux,
 	}
 
