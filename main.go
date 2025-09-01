@@ -36,9 +36,8 @@ func main() {
 	mux.HandleFunc("/healthz", readinessHandler)
 
 	// fileserver with middleware
-	fs := http.FileServer(http.Dir("."))
-	handler := http.StripPrefix("/app", fs)
-	mux.Handle("/app/", apiCfg.middlewareMetricsInc(handler))
+
+	mux.Handle("/app/", apiCfg.middlewareMetricsInc(fileServerHandler()))
 
 	srv := &http.Server{
 		Addr:    ":" + port,
