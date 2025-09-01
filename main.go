@@ -28,6 +28,18 @@ func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	})
 }
 
+// helper for method-based routing
+func methodHandler(handlers map[string]http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if h, ok := handlers[r.Method]; ok {
+			h(w, r)
+		} else {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			json.NewEncoder(w).Encode(api.ErrorResponse{Error: "Method not allowed"})
+		}
+	}
+}
+
 func main() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: .env file not found, relying on OS environment variables")
@@ -43,49 +55,34 @@ func main() {
 	}
 	defer db.Close()
 
-	// Create SQLC queries instance
 	queries := database.New(db)
+	apiCfg := &apiConfig{Platform: os.Getenv("PLATFORM")}
 
-	// Create the serve mux
 	mux := http.NewServeMux()
 
-	// Instance to track hits and platform
-	apiCfg := &apiConfig{
-		Platform: os.Getenv("PLATFORM"),
-	}
-
-	// Admin endpoints
+	// --- Admin Endpoints ---
 	mux.Handle("/admin/metrics", api.HitsHandler(&apiCfg.fileserverHits))
 	mux.HandleFunc("/admin/reset", api.ResetHandler(queries, apiCfg.Platform))
 
-	// Health endpoint
+	// --- Health Endpoint ---
 	mux.HandleFunc("/api/healthz", api.ReadinessHandler)
 
-	// Fileserver with middleware
+	// --- Fileserver ---
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(app.FileServerHandler()))
 
-	// API endpoints
-	mux.HandleFunc("/api/chirps", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			api.ChirpsHandler(queries)(w, r) // pass queries, not DB
-		case http.MethodGet:
-			api.GetAllChirpsHandler(queries)(w, r)
-		default:
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			json.NewEncoder(w).Encode(api.ErrorResponse{Error: "Method not allowed"})
-		}
-	})
+	// --- API Endpoints ---
+	// /api/chirps handles both GET (all) and POST (create)
+	mux.HandleFunc("/api/chirps", methodHandler(map[string]http.HandlerFunc{
+		http.MethodPost: api.ChirpsHandler(queries),
+		http.MethodGet:  api.GetAllChirpsHandler(queries),
+	}))
 
+	// /api/chirps/{id} for single chirp
+	mux.HandleFunc("/api/chirps/", api.GetChirpHandler(queries))
+
+	// /api/users
 	mux.HandleFunc("/api/users", api.CreateUserHandler(queries))
 
-	// Start the server
-	srv := &http.Server{
-		Addr: ":" + port,
-
-		Handler: mux,
-	}
-
 	log.Printf("Serving on port: %s\n", port)
-	log.Fatal(srv.ListenAndServe())
+	log.Fatal(http.ListenAndServe(":"+port, mux))
 }

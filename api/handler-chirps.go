@@ -24,12 +24,12 @@ type chirpRequest struct {
 }
 
 // Response struct for JSON
-type chirpResponse struct {
-	ID        uuid.UUID `json:"id"`
+type ChirpResponse struct {
+	ID        string    `json:"id"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Body      string    `json:"body"`
-	UserID    uuid.UUID `json:"user_id"`
+	UserID    string    `json:"user_id"`
 }
 
 // ChirpsHandler handles POST /api/chirps
@@ -65,7 +65,7 @@ func ChirpsHandler(queries *database.Queries) http.HandlerFunc {
 			return
 		}
 
-		// Split into words and filter bad words
+		// Filter bad words
 		words := strings.Fields(req.Body)
 		for i, w := range words {
 			lower := strings.ToLower(w)
@@ -88,13 +88,13 @@ func ChirpsHandler(queries *database.Queries) http.HandlerFunc {
 			return
 		}
 
-		// Build response
-		resp := chirpResponse{
-			ID:        chirp.ID,
+		// Build response with strings for UUIDs
+		resp := ChirpResponse{
+			ID:        chirp.ID.String(),
 			CreatedAt: chirp.CreatedAt,
 			UpdatedAt: chirp.UpdatedAt,
 			Body:      chirp.Body,
-			UserID:    chirp.UserID,
+			UserID:    chirp.UserID.String(),
 		}
 
 		w.Header().Set("Content-Type", "application/json")
