@@ -30,6 +30,8 @@ func main() {
 
 	apiCfg := &apiConfig{} // instance
 
+	// chirp response
+
 	// hit endpoint
 
 	mux.Handle("/admin/metrics", api.HitsHandler(&apiCfg.fileserverHits))
