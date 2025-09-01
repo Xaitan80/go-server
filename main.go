@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -64,7 +65,17 @@ func main() {
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(app.FileServerHandler()))
 
 	// API endpoints
-	mux.HandleFunc("/api/chirps", api.ChirpsHandler(queries))
+	mux.HandleFunc("/api/chirps", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPost:
+			api.ChirpsHandler(queries)(w, r) // pass queries, not DB
+		case http.MethodGet:
+			api.GetAllChirpsHandler(queries)(w, r)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			json.NewEncoder(w).Encode(api.ErrorResponse{Error: "Method not allowed"})
+		}
+	})
 
 	mux.HandleFunc("/api/users", api.CreateUserHandler(queries))
 
