@@ -42,6 +42,9 @@ func main() {
 
 	mux.Handle("/app/", apiCfg.middlewareMetricsInc(app.FileServerHandler()))
 
+	// api handlers:
+	mux.HandleFunc("/api/validate_chirp", api.ValidateChirpHandler)
+
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: mux,
