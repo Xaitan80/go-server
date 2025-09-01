@@ -18,11 +18,7 @@ type chirpRequest struct {
 	Body string `json:"body"`
 }
 
-// Response structs
-type errorResponse struct {
-	Error string `json:"error"`
-}
-
+// Response struct
 type chirpResponse struct {
 	CleanedBody string `json:"cleaned_body"`
 }
@@ -32,7 +28,7 @@ func ValidateChirpHandler(w http.ResponseWriter, r *http.Request) {
 	// Only accept POST
 	if r.Method != http.MethodPost {
 		w.WriteHeader(http.StatusMethodNotAllowed)
-		json.NewEncoder(w).Encode(errorResponse{Error: "Method not allowed"})
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "Method not allowed"})
 		return
 	}
 
@@ -40,14 +36,14 @@ func ValidateChirpHandler(w http.ResponseWriter, r *http.Request) {
 	var req chirpRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(errorResponse{Error: "Invalid JSON"})
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid JSON"})
 		return
 	}
 
 	// Validate length
 	if len(req.Body) > 140 {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(errorResponse{Error: "Chirp is too long"})
+		json.NewEncoder(w).Encode(ErrorResponse{Error: "Chirp is too long"})
 		return
 	}
 

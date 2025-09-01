@@ -1,19 +1,35 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
-	"sync/atomic"
+
+	"github.com/xaitan80/go-server/internal/database"
 )
 
-// ResetHandler returns an HTTP handler that resets the counter to 0
-func ResetHandler(counter *atomic.Int32) http.HandlerFunc {
+// ResetHandler deletes all users if platform is "dev"
+func ResetHandler(queries *database.Queries, platform string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Method not allowed"})
 			return
 		}
-		counter.Store(0) // reset safely
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.Write([]byte("Hits reset"))
+
+		if platform != "dev" {
+			w.WriteHeader(http.StatusForbidden)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Forbidden"})
+			return
+		}
+
+		if err := queries.DeleteAllUsers(r.Context()); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to delete users"})
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"deleted":true}`))
 	}
 }
