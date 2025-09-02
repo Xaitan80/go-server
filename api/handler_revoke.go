@@ -10,17 +10,11 @@ import (
 	"github.com/xaitan80/go-server/internal/database"
 )
 
-// RevokeHandler handles POST /api/revoke
+// RevokeHandler revokes a refresh token
 func RevokeHandler(queries *database.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Only allow POST
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			json.NewEncoder(w).Encode(ErrorResponse{Error: "Method not allowed"})
-			return
-		}
+		// Extract refresh token from header
 
-		// Get the refresh token from Authorization header
 		tokenStr, err := auth.GetBearerToken(r.Header)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -28,21 +22,19 @@ func RevokeHandler(queries *database.Queries) http.HandlerFunc {
 			return
 		}
 
-		now := time.Now()
-
-		// Revoke the token in the database
-		err = queries.RevokeRefreshToken(r.Context(), database.RevokeRefreshTokenParams{
+		// Revoke the refresh token
+		params := database.RevokeRefreshTokenParams{
 			Token:     tokenStr,
-			RevokedAt: sql.NullTime{Time: now, Valid: true}, // wrap time.Time in sql.NullTime
-			UpdatedAt: now,
-		})
-		if err != nil {
+			RevokedAt: sql.NullTime{Time: time.Now(), Valid: true},
+		}
+
+		if err := queries.RevokeRefreshToken(r.Context(), params); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to revoke token"})
 			return
 		}
 
-		// 204 No Content response
+		// Successful revoke returns 204 No Content
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

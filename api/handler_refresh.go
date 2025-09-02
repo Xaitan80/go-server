@@ -12,7 +12,7 @@ import (
 // RefreshHandler creates a new access token for a valid refresh token
 func RefreshHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract refresh token from header
+		// Extract refresh token from Authorization header
 		tokenStr, err := auth.GetBearerToken(r.Header)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)

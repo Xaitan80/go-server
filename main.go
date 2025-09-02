@@ -8,6 +8,8 @@ import (
 	"os"
 	"sync/atomic"
 
+	_ "fmt"
+
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/xaitan80/go-server/api"
@@ -42,7 +44,7 @@ func methodHandler(handlers map[string]http.HandlerFunc) http.HandlerFunc {
 }
 
 func main() {
-	if err := godotenv.Load("./.env"); err != nil {
+	if err := godotenv.Load(); err != nil {
 		log.Println("Warning: .env file not found, relying on OS environment variables")
 	}
 

@@ -18,11 +18,12 @@ type loginRequest struct {
 
 // Response struct for returning the user (no password)
 type loginResponse struct {
-	ID        string `json:"id"`
-	Email     string `json:"email"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-	Token     string `json:"token"`
+	ID           string `json:"id"`
+	Email        string `json:"email"`
+	CreatedAt    string `json:"created_at"`
+	UpdatedAt    string `json:"updated_at"`
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 // LoginHandler handles POST /api/login
@@ -80,13 +81,34 @@ func LoginHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc 
 			return
 		}
 
-		// Build response including JWT
+		// --- Refresh token creation ---
+		refreshToken, err := auth.MakeRefreshToken()
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to generate refresh token"})
+			return
+		}
+
+		// Save refresh token in DB
+		_, err = queries.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+			UserID:    user.ID,
+			Token:     refreshToken,
+			ExpiresAt: time.Now().Add(24 * time.Hour),
+		})
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to save refresh token"})
+			return
+		}
+
+		// Build response including JWT and refresh token
 		resp := loginResponse{
-			ID:        user.ID.String(),
-			Email:     user.Email,
-			CreatedAt: user.CreatedAt.Format(time.RFC3339),
-			UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
-			Token:     token,
+			ID:           user.ID.String(),
+			Email:        user.Email,
+			CreatedAt:    user.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:    user.UpdatedAt.Format(time.RFC3339),
+			Token:        token,
+			RefreshToken: refreshToken,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
