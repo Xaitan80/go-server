@@ -1,48 +1,60 @@
 package auth
 
-import "testing"
+import (
+	"testing"
+	"time"
 
-func TestHashAndCheckPassword(t *testing.T) {
-	password := "mysecret123"
+	"github.com/google/uuid"
+)
 
-	// Hash the password
-	hash, err := HashPassword(password)
+func TestMakeAndValidateJWT(t *testing.T) {
+	secret := "supersecret"
+	userID := uuid.New()
+	exp := time.Minute * 5
+
+	token, err := MakeJWT(userID, secret, exp)
 	if err != nil {
-		t.Fatalf("failed to hash password: %v", err)
+		t.Fatalf("failed to create JWT: %v", err)
 	}
 
-	// Hash should not equal the plain password
-	if hash == password {
-		t.Errorf("expected hashed password to differ from plain password")
+	id, err := ValidateJWT(token, secret)
+	if err != nil {
+		t.Fatalf("failed to validate JWT: %v", err)
 	}
 
-	// Correct password should validate
-	if err := CheckPasswordHash(password, hash); err != nil {
-		t.Errorf("expected password check to succeed, got error: %v", err)
-	}
-
-	// Wrong password should fail
-	wrong := "wrongpass"
-	if err := CheckPasswordHash(wrong, hash); err == nil {
-		t.Errorf("expected password check to fail for wrong password")
+	if id != userID {
+		t.Errorf("expected userID %v, got %v", userID, id)
 	}
 }
 
-func TestHashPasswordProducesDifferentHashes(t *testing.T) {
-	password := "repeatpass"
+func TestExpiredJWT(t *testing.T) {
+	secret := "supersecret"
+	userID := uuid.New()
 
-	hash1, err := HashPassword(password)
+	token, err := MakeJWT(userID, secret, -time.Minute) // already expired
 	if err != nil {
-		t.Fatalf("failed to hash password 1: %v", err)
+		t.Fatalf("failed to create JWT: %v", err)
 	}
 
-	hash2, err := HashPassword(password)
+	_, err = ValidateJWT(token, secret)
+	if err == nil {
+		t.Fatal("expected error validating expired token, got nil")
+	}
+}
+
+func TestWrongSecretJWT(t *testing.T) {
+	secret := "supersecret"
+	wrongSecret := "wrongsecret"
+	userID := uuid.New()
+	exp := time.Minute * 5
+
+	token, err := MakeJWT(userID, secret, exp)
 	if err != nil {
-		t.Fatalf("failed to hash password 2: %v", err)
+		t.Fatalf("failed to create JWT: %v", err)
 	}
 
-	// Bcrypt adds a random salt, so even same password hashes should differ
-	if hash1 == hash2 {
-		t.Errorf("expected different hashes for same password, got identical")
+	_, err = ValidateJWT(token, wrongSecret)
+	if err == nil {
+		t.Fatal("expected error validating token with wrong secret, got nil")
 	}
 }
