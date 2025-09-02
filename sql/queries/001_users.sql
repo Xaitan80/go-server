@@ -30,3 +30,4 @@ SELECT
 FROM users u
 JOIN refresh_tokens r ON u.id = r.user_id
 WHERE r.token = $1;
+

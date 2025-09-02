@@ -2,23 +2,21 @@ package auth
 
 import (
 	"errors"
-	"time"
-
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
-// GetBearerToken extracts the token string from the Authorization header
+// GetBearerToken extracts the token string from the Authorization header.
 func GetBearerToken(headers http.Header) (string, error) {
 	authHeader := headers.Get("Authorization")
 	if authHeader == "" {
 		return "", errors.New("authorization header not found")
 	}
 
-	// Expect "Bearer TOKEN_STRING"
 	parts := strings.Fields(authHeader)
 	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
 		return "", errors.New("invalid authorization header format")
@@ -39,14 +37,12 @@ func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (str
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
 	return token.SignedString([]byte(tokenSecret))
 }
 
 // ValidateJWT validates the JWT and returns the user ID stored in the Subject field.
 func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(t *jwt.Token) (interface{}, error) {
-		// Make sure the signing method is HS256
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, errors.New("unexpected signing method")
 		}
@@ -67,4 +63,13 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	}
 
 	return id, nil
+}
+
+// GetUserIDFromHeader extracts the user ID from the Authorization header JWT.
+func GetUserIDFromHeader(headers http.Header, tokenSecret string) (uuid.UUID, error) {
+	tokenString, err := GetBearerToken(headers)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	return ValidateJWT(tokenString, tokenSecret)
 }

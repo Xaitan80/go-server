@@ -87,7 +87,12 @@ func main() {
 	mux.HandleFunc("/api/chirps/", api.GetChirpHandler(queries))
 
 	// /api/users
-	mux.HandleFunc("/api/users", api.CreateUserHandler(queries))
+	mux.HandleFunc("/api/users", methodHandler(map[string]http.HandlerFunc{
+		http.MethodPost: api.CreateUserHandler(queries),
+		http.MethodPut:  api.UpdateUserHandler(queries, apiCfg.JWTSecret),
+	}))
+
+	// old mux.HandleFunc("/api/users", api.CreateUserHandler(queries))
 	// old mux.HandleFunc("/api/login", api.LoginHandler(queries))
 	mux.HandleFunc("/api/login", api.LoginHandler(queries, apiCfg.JWTSecret))
 

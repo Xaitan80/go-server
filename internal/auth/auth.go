@@ -22,7 +22,7 @@ func CheckPasswordHash(password, hash string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 }
 
-// MakeRefreshToken generates a secure 32-byte hex string for refresh tokens
+// MakeRefreshToken generates a secure 32-byte hex string for refresh tokens.
 func MakeRefreshToken() (string, error) {
 	bytes := make([]byte, 32)
 	if _, err := rand.Read(bytes); err != nil {
