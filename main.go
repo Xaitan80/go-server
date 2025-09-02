@@ -82,6 +82,7 @@ func main() {
 
 	// /api/users
 	mux.HandleFunc("/api/users", api.CreateUserHandler(queries))
+	mux.HandleFunc("/api/login", api.LoginHandler(queries))
 
 	log.Printf("Serving on port: %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))

@@ -9,22 +9,22 @@ import (
 	"github.com/xaitan80/go-server/internal/database"
 )
 
-// Request struct for creating a user
-type createUserRequest struct {
+// Request struct for login
+type loginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
-// Response struct for returning created user
-type createUserResponse struct {
+// Response struct for returning the user (no password)
+type loginResponse struct {
 	ID        string `json:"id"`
 	Email     string `json:"email"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
 }
 
-// CreateUserHandler handles POST /api/users
-func CreateUserHandler(queries *database.Queries) http.HandlerFunc {
+// LoginHandler handles POST /api/login
+func LoginHandler(queries *database.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Only allow POST
 		if r.Method != http.MethodPost {
@@ -34,50 +34,44 @@ func CreateUserHandler(queries *database.Queries) http.HandlerFunc {
 		}
 
 		// Decode request body
-		var req createUserRequest
+		var req loginRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid JSON"})
 			return
 		}
 
-		// Validate required fields
 		if req.Email == "" || req.Password == "" {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(ErrorResponse{Error: "Email and password are required"})
 			return
 		}
 
-		// Hash the password
-		hash, err := auth.HashPassword(req.Password)
+		// Fetch the user by email
+		user, err := queries.GetUserByEmail(r.Context(), req.Email)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to hash password"})
+			// Lookup failed
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Incorrect email or password"})
 			return
 		}
 
-		// Create the user in the database
-		user, err := queries.CreateUser(r.Context(), database.CreateUserParams{
-			Email:          req.Email,
-			HashedPassword: hash,
-		})
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to create user"})
+		// Compare password with stored hash
+		if err := auth.CheckPasswordHash(req.Password, user.HashedPassword); err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Incorrect email or password"})
 			return
 		}
 
-		// Prepare response
-		resp := createUserResponse{
+		// Password correct — return user info (no password)
+		resp := loginResponse{
 			ID:        user.ID.String(),
 			Email:     user.Email,
 			CreatedAt: user.CreatedAt.Format(time.RFC3339),
 			UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
 		}
 
-		// Send response
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(resp)
 	}
 }
