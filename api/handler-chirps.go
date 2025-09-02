@@ -6,12 +6,11 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/google/uuid"
 	"github.com/xaitan80/go-server/internal/auth"
 	"github.com/xaitan80/go-server/internal/database"
 )
 
-// bad words to filter
+// List of bad words to filter
 var badWords = []string{
 	"kerfuffle",
 	"sharbert",
@@ -50,6 +49,7 @@ func ChirpsHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc
 			return
 		}
 
+		// Validate JWT and get userID (already uuid.UUID)
 		userID, err := auth.ValidateJWT(tokenString, jwtSecret)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -65,7 +65,7 @@ func ChirpsHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc
 			return
 		}
 
-		// Validate length
+		// Validate chirp length
 		if len(req.Body) > 140 {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(ErrorResponse{Error: "Chirp is too long"})
@@ -87,7 +87,7 @@ func ChirpsHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc
 		// Insert into database
 		chirp, err := queries.CreateChirp(r.Context(), database.CreateChirpParams{
 			Body:   cleaned,
-			UserID: userID,
+			UserID: userID, // uuid.UUID, no parsing needed
 		})
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)

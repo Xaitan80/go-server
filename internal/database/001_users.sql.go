@@ -14,21 +14,14 @@ import (
 )
 
 const createUser = `-- name: CreateUser :one
-INSERT INTO users (id, created_at, updated_at, email, hashed_password, is_chirpy_red)
-VALUES (
-    gen_random_uuid(),
-    NOW(),
-    NOW(),
-    $1,
-    $2,
-    FALSE
-)
+INSERT INTO users (id, created_at, updated_at, email, hashed_password)
+VALUES (gen_random_uuid(), NOW(), NOW(), $1, $2)
 RETURNING id, created_at, updated_at, email, hashed_password, is_chirpy_red
 `
 
 type CreateUserParams struct {
 	Email          string
-	HashedPassword string
+	HashedPassword sql.NullString
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
@@ -92,7 +85,7 @@ WHERE r.token = $1
 type GetUserFromRefreshTokenRow struct {
 	UserID         uuid.UUID
 	Email          string
-	HashedPassword string
+	HashedPassword sql.NullString
 	UserCreatedAt  time.Time
 	UserUpdatedAt  time.Time
 	Token          string

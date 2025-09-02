@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/xaitan80/go-server/internal/database"
 )
 
@@ -26,7 +27,23 @@ func GetAllChirpsHandler(DB *database.Queries) http.HandlerFunc {
 			return
 		}
 
-		chirps, err := DB.GetAllChirps(r.Context())
+		// Check for optional author_id query parameter
+		authorIDStr := r.URL.Query().Get("author_id")
+		var chirps []database.Chirp
+		var err error
+
+		if authorIDStr != "" {
+			authorID, parseErr := uuid.Parse(authorIDStr)
+			if parseErr != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid author_id"})
+				return
+			}
+			chirps, err = DB.GetChirpsByAuthorID(r.Context(), authorID)
+		} else {
+			chirps, err = DB.GetAllChirps(r.Context())
+		}
+
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to fetch chirps"})

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -12,7 +13,7 @@ import (
 // Request struct for updating user
 type updateUserRequest struct {
 	Email    string `json:"email"`
-	Password string `json:"password"`
+	Password string `json:"password,omitempty"`
 }
 
 // UpdateUserHandler handles PUT /api/users
@@ -41,18 +42,30 @@ func UpdateUserHandler(queries *database.Queries, jwtSecret string) http.Handler
 			return
 		}
 
-		if req.Email == "" || req.Password == "" {
+		if req.Email == "" {
 			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(ErrorResponse{Error: "Email and password are required"})
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Email is required"})
 			return
 		}
 
-		// Hash the new password
-		hashedPassword, err := auth.HashPassword(req.Password)
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to hash password"})
-			return
+		// Prepare hashed password if provided
+		var hashedPassword sql.NullString
+		if req.Password != "" {
+			hash, err := auth.HashPassword(req.Password)
+			if err != nil {
+				w.WriteHeader(http.StatusInternalServerError)
+				json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to hash password"})
+				return
+			}
+			hashedPassword = sql.NullString{
+				String: hash,
+				Valid:  true,
+			}
+		} else {
+			// Keep existing password by setting Valid = false
+			hashedPassword = sql.NullString{
+				Valid: false,
+			}
 		}
 
 		// Update user in database
@@ -60,7 +73,6 @@ func UpdateUserHandler(queries *database.Queries, jwtSecret string) http.Handler
 			ID:             userID,
 			Email:          req.Email,
 			HashedPassword: hashedPassword,
-			//UpdatedAt:      time.Now(),
 		})
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)

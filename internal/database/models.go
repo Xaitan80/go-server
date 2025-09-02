@@ -17,12 +17,11 @@ type Chirp struct {
 	UpdatedAt time.Time
 	Body      string
 	UserID    uuid.UUID
+	AuthorID  uuid.UUID
 }
 
 type RefreshToken struct {
 	Token     string
-	CreatedAt time.Time
-	UpdatedAt time.Time
 	UserID    uuid.UUID
 	ExpiresAt time.Time
 	RevokedAt sql.NullTime
@@ -33,6 +32,6 @@ type User struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	Email          string
-	HashedPassword string
+	HashedPassword sql.NullString
 	IsChirpyRed    bool
 }

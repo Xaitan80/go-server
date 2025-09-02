@@ -39,7 +39,7 @@ func DeleteChirpHandler(queries *database.Queries, jwtSecret string) http.Handle
 		}
 
 		// Fetch chirp to check ownership
-		chirp, err := queries.GetChirp(r.Context(), chirpID)
+		chirp, err := queries.GetChirpByID(r.Context(), chirpID)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				w.WriteHeader(http.StatusNotFound)
