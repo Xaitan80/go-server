@@ -11,8 +11,9 @@ import (
 
 // Request struct for login
 type loginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email            string `json:"email"`
+	Password         string `json:"password"`
+	ExpiresInSeconds int64  `json:"expires_in_seconds,omitempty"`
 }
 
 // Response struct for returning the user (no password)
@@ -21,10 +22,11 @@ type loginResponse struct {
 	Email     string `json:"email"`
 	CreatedAt string `json:"created_at"`
 	UpdatedAt string `json:"updated_at"`
+	Token     string `json:"token"`
 }
 
 // LoginHandler handles POST /api/login
-func LoginHandler(queries *database.Queries) http.HandlerFunc {
+func LoginHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Only allow POST
 		if r.Method != http.MethodPost {
@@ -50,7 +52,6 @@ func LoginHandler(queries *database.Queries) http.HandlerFunc {
 		// Fetch the user by email
 		user, err := queries.GetUserByEmail(r.Context(), req.Email)
 		if err != nil {
-			// Lookup failed
 			w.WriteHeader(http.StatusUnauthorized)
 			json.NewEncoder(w).Encode(ErrorResponse{Error: "Incorrect email or password"})
 			return
@@ -63,12 +64,29 @@ func LoginHandler(queries *database.Queries) http.HandlerFunc {
 			return
 		}
 
-		// Password correct — return user info (no password)
+		// --- JWT creation ---
+		expires := time.Hour // default 1 hour
+		if req.ExpiresInSeconds > 0 {
+			if req.ExpiresInSeconds > 3600 {
+				req.ExpiresInSeconds = 3600
+			}
+			expires = time.Duration(req.ExpiresInSeconds) * time.Second
+		}
+
+		token, err := auth.MakeJWT(user.ID, jwtSecret, expires)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to generate token"})
+			return
+		}
+
+		// Build response including JWT
 		resp := loginResponse{
 			ID:        user.ID.String(),
 			Email:     user.Email,
 			CreatedAt: user.CreatedAt.Format(time.RFC3339),
 			UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
+			Token:     token,
 		}
 
 		w.Header().Set("Content-Type", "application/json")

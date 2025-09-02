@@ -4,9 +4,28 @@ import (
 	"errors"
 	"time"
 
+	"net/http"
+	"strings"
+
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
+
+// GetBearerToken extracts the token string from the Authorization header
+func GetBearerToken(headers http.Header) (string, error) {
+	authHeader := headers.Get("Authorization")
+	if authHeader == "" {
+		return "", errors.New("authorization header not found")
+	}
+
+	// Expect "Bearer TOKEN_STRING"
+	parts := strings.Fields(authHeader)
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+		return "", errors.New("invalid authorization header format")
+	}
+
+	return parts[1], nil
+}
 
 // MakeJWT creates a JWT for the given user ID and signs it with tokenSecret.
 // expiresIn is the duration until the token expires.

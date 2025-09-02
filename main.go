@@ -18,6 +18,7 @@ import (
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	Platform       string
+	JWTSecret      string
 }
 
 // Middleware that increments the fileserver hit counter
@@ -56,7 +57,10 @@ func main() {
 	defer db.Close()
 
 	queries := database.New(db)
-	apiCfg := &apiConfig{Platform: os.Getenv("PLATFORM")}
+	apiCfg := &apiConfig{
+		Platform:  os.Getenv("PLATFORM"),
+		JWTSecret: os.Getenv("JWT_SECRET"),
+	}
 
 	mux := http.NewServeMux()
 
@@ -73,7 +77,7 @@ func main() {
 	// --- API Endpoints ---
 	// /api/chirps handles both GET (all) and POST (create)
 	mux.HandleFunc("/api/chirps", methodHandler(map[string]http.HandlerFunc{
-		http.MethodPost: api.ChirpsHandler(queries),
+		http.MethodPost: api.ChirpsHandler(queries, apiCfg.JWTSecret),
 		http.MethodGet:  api.GetAllChirpsHandler(queries),
 	}))
 
@@ -82,7 +86,8 @@ func main() {
 
 	// /api/users
 	mux.HandleFunc("/api/users", api.CreateUserHandler(queries))
-	mux.HandleFunc("/api/login", api.LoginHandler(queries))
+	// old mux.HandleFunc("/api/login", api.LoginHandler(queries))
+	mux.HandleFunc("/api/login", api.LoginHandler(queries, apiCfg.JWTSecret))
 
 	log.Printf("Serving on port: %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))
