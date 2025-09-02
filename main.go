@@ -8,6 +8,8 @@ import (
 	"os"
 	"sync/atomic"
 
+	_ "fmt"
+
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/xaitan80/go-server/api"
@@ -88,6 +90,10 @@ func main() {
 	mux.HandleFunc("/api/users", api.CreateUserHandler(queries))
 	// old mux.HandleFunc("/api/login", api.LoginHandler(queries))
 	mux.HandleFunc("/api/login", api.LoginHandler(queries, apiCfg.JWTSecret))
+
+	//refresh and revoke
+	mux.HandleFunc("/api/refresh", api.RefreshHandler(queries, apiCfg.JWTSecret))
+	mux.HandleFunc("/api/revoke", api.RevokeHandler(queries))
 
 	log.Printf("Serving on port: %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))
