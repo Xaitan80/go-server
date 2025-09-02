@@ -17,10 +17,11 @@ type createUserRequest struct {
 
 // Response struct for returning created user
 type createUserResponse struct {
-	ID        string `json:"id"`
-	Email     string `json:"email"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID          string `json:"id"`
+	Email       string `json:"email"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+	IsChirpyRed bool   `json:"is_chirpy_red"`
 }
 
 // CreateUserHandler handles POST /api/users
@@ -69,10 +70,11 @@ func CreateUserHandler(queries *database.Queries) http.HandlerFunc {
 
 		// Prepare response
 		resp := createUserResponse{
-			ID:        user.ID.String(),
-			Email:     user.Email,
-			CreatedAt: user.CreatedAt.Format(time.RFC3339),
-			UpdatedAt: user.UpdatedAt.Format(time.RFC3339),
+			ID:          user.ID.String(),
+			Email:       user.Email,
+			CreatedAt:   user.CreatedAt.Format(time.RFC3339),
+			UpdatedAt:   user.UpdatedAt.Format(time.RFC3339),
+			IsChirpyRed: user.IsChirpyRed,
 		}
 
 		// Send response

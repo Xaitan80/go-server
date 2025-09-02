@@ -107,6 +107,9 @@ func main() {
 	mux.HandleFunc("/api/refresh", api.RefreshHandler(queries, apiCfg.JWTSecret))
 	mux.HandleFunc("/api/revoke", api.RevokeHandler(queries))
 
+	// red users
+	mux.HandleFunc("/api/polka/webhooks", api.PolkaWebhooksHandler(queries))
+
 	log.Printf("Serving on port: %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))
 }

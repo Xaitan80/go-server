@@ -24,6 +24,7 @@ type loginResponse struct {
 	UpdatedAt    string `json:"updated_at"`
 	Token        string `json:"token"`
 	RefreshToken string `json:"refresh_token"`
+	IsChirpyRed  bool   `json:"is_chirpy_red"`
 }
 
 // LoginHandler handles POST /api/login
@@ -109,6 +110,7 @@ func LoginHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc 
 			UpdatedAt:    user.UpdatedAt.Format(time.RFC3339),
 			Token:        token,
 			RefreshToken: refreshToken,
+			IsChirpyRed:  user.IsChirpyRed,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
