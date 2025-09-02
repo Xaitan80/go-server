@@ -1,11 +1,39 @@
 package auth
 
 import (
+	"net/http"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+func TestGetBearerToken(t *testing.T) {
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer mytoken123")
+
+	token, err := GetBearerToken(headers)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if token != "mytoken123" {
+		t.Errorf("expected token 'mytoken123', got %s", token)
+	}
+
+	// Test missing header
+	headers = http.Header{}
+	_, err = GetBearerToken(headers)
+	if err == nil {
+		t.Fatal("expected error for missing header, got nil")
+	}
+
+	// Test malformed header
+	headers.Set("Authorization", "InvalidFormat")
+	_, err = GetBearerToken(headers)
+	if err == nil {
+		t.Fatal("expected error for malformed header, got nil")
+	}
+}
 
 func TestMakeAndValidateJWT(t *testing.T) {
 	secret := "supersecret"

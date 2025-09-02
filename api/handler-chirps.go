@@ -6,7 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	_ "github.com/google/uuid"
+	"github.com/xaitan80/go-server/internal/auth"
 	"github.com/xaitan80/go-server/internal/database"
 )
 
@@ -19,8 +20,7 @@ var badWords = []string{
 
 // Request struct for incoming JSON
 type chirpRequest struct {
-	Body   string `json:"body"`
-	UserID string `json:"user_id"`
+	Body string `json:"body"`
 }
 
 // Response struct for JSON
@@ -33,12 +33,27 @@ type ChirpResponse struct {
 }
 
 // ChirpsHandler handles POST /api/chirps
-func ChirpsHandler(queries *database.Queries) http.HandlerFunc {
+func ChirpsHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Only accept POST
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			json.NewEncoder(w).Encode(ErrorResponse{Error: "Method not allowed"})
+			return
+		}
+
+		// Extract JWT from Authorization header
+		tokenString, err := auth.GetBearerToken(r.Header)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Missing or invalid token"})
+			return
+		}
+
+		userID, err := auth.ValidateJWT(tokenString, jwtSecret)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid token"})
 			return
 		}
 
@@ -54,14 +69,6 @@ func ChirpsHandler(queries *database.Queries) http.HandlerFunc {
 		if len(req.Body) > 140 {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(ErrorResponse{Error: "Chirp is too long"})
-			return
-		}
-
-		// Parse user_id to UUID
-		userID, err := uuid.Parse(req.UserID)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid user_id"})
 			return
 		}
 
@@ -88,7 +95,7 @@ func ChirpsHandler(queries *database.Queries) http.HandlerFunc {
 			return
 		}
 
-		// Build response with strings for UUIDs
+		// Build response
 		resp := ChirpResponse{
 			ID:        chirp.ID.String(),
 			CreatedAt: chirp.CreatedAt,
