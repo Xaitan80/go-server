@@ -8,8 +8,6 @@ import (
 	"os"
 	"sync/atomic"
 
-	_ "fmt"
-
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/xaitan80/go-server/api"
@@ -83,20 +81,29 @@ func main() {
 		http.MethodGet:  api.GetAllChirpsHandler(queries),
 	}))
 
-	// /api/chirps/{id} for single chirp
-	mux.HandleFunc("/api/chirps/", api.GetChirpHandler(queries))
+	// /api/chirps/{id} for GET single chirp and DELETE chirp
+	mux.HandleFunc("/api/chirps/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			api.GetChirpHandler(queries)(w, r)
+		case http.MethodDelete:
+			api.DeleteChirpHandler(queries, apiCfg.JWTSecret)(w, r)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			json.NewEncoder(w).Encode(api.ErrorResponse{Error: "Method not allowed"})
+		}
+	})
 
-	// /api/users
+	// /api/users handles POST (create) and PUT (update)
 	mux.HandleFunc("/api/users", methodHandler(map[string]http.HandlerFunc{
 		http.MethodPost: api.CreateUserHandler(queries),
 		http.MethodPut:  api.UpdateUserHandler(queries, apiCfg.JWTSecret),
 	}))
 
-	// old mux.HandleFunc("/api/users", api.CreateUserHandler(queries))
-	// old mux.HandleFunc("/api/login", api.LoginHandler(queries))
+	// /api/login
 	mux.HandleFunc("/api/login", api.LoginHandler(queries, apiCfg.JWTSecret))
 
-	//refresh and revoke
+	// refresh and revoke
 	mux.HandleFunc("/api/refresh", api.RefreshHandler(queries, apiCfg.JWTSecret))
 	mux.HandleFunc("/api/revoke", api.RevokeHandler(queries))
 
