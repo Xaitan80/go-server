@@ -12,19 +12,14 @@ import (
 	_ "github.com/lib/pq"
 	"github.com/xaitan80/go-server/api"
 	"github.com/xaitan80/go-server/app"
+	"github.com/xaitan80/go-server/internal/config"
 	"github.com/xaitan80/go-server/internal/database"
 )
 
-type apiConfig struct {
-	fileserverHits atomic.Int32
-	Platform       string
-	JWTSecret      string
-}
-
 // Middleware that increments the fileserver hit counter
-func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
+func middlewareMetricsInc(hits *atomic.Int32, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg.fileserverHits.Add(1)
+		hits.Add(1)
 		next.ServeHTTP(w, r)
 	})
 }
@@ -57,25 +52,31 @@ func main() {
 	defer db.Close()
 
 	queries := database.New(db)
-	apiCfg := &apiConfig{
+
+	// Global API config
+	apiCfg := &config.APIConfig{
 		Platform:  os.Getenv("PLATFORM"),
 		JWTSecret: os.Getenv("JWT_SECRET"),
+		PolkaKey:  os.Getenv("POLKA_KEY"),
 	}
+
+	// Fileserver hit counter
+	var fileserverHits atomic.Int32
 
 	mux := http.NewServeMux()
 
 	// --- Admin Endpoints ---
-	mux.Handle("/admin/metrics", api.HitsHandler(&apiCfg.fileserverHits))
+	mux.Handle("/admin/metrics", api.HitsHandler(&fileserverHits))
 	mux.HandleFunc("/admin/reset", api.ResetHandler(queries, apiCfg.Platform))
 
 	// --- Health Endpoint ---
 	mux.HandleFunc("/api/healthz", api.ReadinessHandler)
 
 	// --- Fileserver ---
-	mux.Handle("/app/", apiCfg.middlewareMetricsInc(app.FileServerHandler()))
+	mux.Handle("/app/", middlewareMetricsInc(&fileserverHits, app.FileServerHandler()))
 
 	// --- API Endpoints ---
-	// /api/chirps handles both GET (all) and POST (create)
+	// /api/chirps handles GET (all) and POST (create)
 	mux.HandleFunc("/api/chirps", methodHandler(map[string]http.HandlerFunc{
 		http.MethodPost: api.ChirpsHandler(queries, apiCfg.JWTSecret),
 		http.MethodGet:  api.GetAllChirpsHandler(queries),
@@ -107,8 +108,8 @@ func main() {
 	mux.HandleFunc("/api/refresh", api.RefreshHandler(queries, apiCfg.JWTSecret))
 	mux.HandleFunc("/api/revoke", api.RevokeHandler(queries))
 
-	// red users
-	mux.HandleFunc("/api/polka/webhooks", api.PolkaWebhooksHandler(queries))
+	// /api/polka/webhooks
+	mux.HandleFunc("/api/polka/webhooks", api.PolkaWebhooksHandler(queries, apiCfg))
 
 	log.Printf("Serving on port: %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))
