@@ -7,6 +7,10 @@ package database
 
 import (
 	"context"
+	"database/sql"
+	"time"
+
+	"github.com/google/uuid"
 )
 
 const createUser = `-- name: CreateUser :one
@@ -65,4 +69,57 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.HashedPassword,
 	)
 	return i, err
+}
+
+const getUserFromRefreshToken = `-- name: GetUserFromRefreshToken :one
+SELECT u.id, u.created_at, u.updated_at, u.email, u.hashed_password, r.user_id, r.token, r.expires_at, r.revoked_at
+FROM users u
+JOIN refresh_tokens r ON u.id = r.user_id
+WHERE r.token = $1
+`
+
+type GetUserFromRefreshTokenRow struct {
+	ID             uuid.UUID
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+	Email          string
+	HashedPassword string
+	UserID         uuid.UUID
+	Token          string
+	ExpiresAt      time.Time
+	RevokedAt      sql.NullTime
+}
+
+func (q *Queries) GetUserFromRefreshToken(ctx context.Context, token string) (GetUserFromRefreshTokenRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserFromRefreshToken, token)
+	var i GetUserFromRefreshTokenRow
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Email,
+		&i.HashedPassword,
+		&i.UserID,
+		&i.Token,
+		&i.ExpiresAt,
+		&i.RevokedAt,
+	)
+	return i, err
+}
+
+const revokeRefreshToken = `-- name: RevokeRefreshToken :exec
+UPDATE refresh_tokens
+SET revoked_at = $2, updated_at = $3
+WHERE token = $1
+`
+
+type RevokeRefreshTokenParams struct {
+	Token     string
+	RevokedAt sql.NullTime
+	UpdatedAt time.Time
+}
+
+func (q *Queries) RevokeRefreshToken(ctx context.Context, arg RevokeRefreshTokenParams) error {
+	_, err := q.db.ExecContext(ctx, revokeRefreshToken, arg.Token, arg.RevokedAt, arg.UpdatedAt)
+	return err
 }

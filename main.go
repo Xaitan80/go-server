@@ -42,7 +42,7 @@ func methodHandler(handlers map[string]http.HandlerFunc) http.HandlerFunc {
 }
 
 func main() {
-	if err := godotenv.Load(); err != nil {
+	if err := godotenv.Load("./.env"); err != nil {
 		log.Println("Warning: .env file not found, relying on OS environment variables")
 	}
 
@@ -88,6 +88,10 @@ func main() {
 	mux.HandleFunc("/api/users", api.CreateUserHandler(queries))
 	// old mux.HandleFunc("/api/login", api.LoginHandler(queries))
 	mux.HandleFunc("/api/login", api.LoginHandler(queries, apiCfg.JWTSecret))
+
+	//refresh and revoke
+	mux.HandleFunc("/api/refresh", api.RefreshHandler(queries, apiCfg.JWTSecret))
+	mux.HandleFunc("/api/revoke", api.RevokeHandler(queries))
 
 	log.Printf("Serving on port: %s\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, mux))
