@@ -79,7 +79,7 @@ func main() {
 	// /api/chirps handles GET (all) and POST (create)
 	mux.HandleFunc("/api/chirps", methodHandler(map[string]http.HandlerFunc{
 		http.MethodPost: api.ChirpsHandler(queries, apiCfg.JWTSecret),
-		http.MethodGet:  api.GetAllChirpsHandler(queries),
+		http.MethodGet:  api.GetAllChirpsHandler(queries), // supports author_id + sort
 	}))
 
 	// /api/chirps/{id} for GET single chirp and DELETE chirp
