@@ -3,9 +3,11 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/xaitan80/go-server/internal/auth"
 	"github.com/xaitan80/go-server/internal/database"
 )
@@ -34,14 +36,12 @@ type ChirpResponse struct {
 // ChirpsHandler handles POST /api/chirps
 func ChirpsHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Only accept POST
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			json.NewEncoder(w).Encode(ErrorResponse{Error: "Method not allowed"})
 			return
 		}
 
-		// Extract JWT from Authorization header
 		tokenString, err := auth.GetBearerToken(r.Header)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -49,7 +49,6 @@ func ChirpsHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc
 			return
 		}
 
-		// Validate JWT and get userID (already uuid.UUID)
 		userID, err := auth.ValidateJWT(tokenString, jwtSecret)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
@@ -57,7 +56,6 @@ func ChirpsHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc
 			return
 		}
 
-		// Decode JSON body
 		var req chirpRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -65,7 +63,6 @@ func ChirpsHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc
 			return
 		}
 
-		// Validate chirp length
 		if len(req.Body) > 140 {
 			w.WriteHeader(http.StatusBadRequest)
 			json.NewEncoder(w).Encode(ErrorResponse{Error: "Chirp is too long"})
@@ -84,10 +81,9 @@ func ChirpsHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc
 		}
 		cleaned := strings.Join(words, " ")
 
-		// Insert into database
 		chirp, err := queries.CreateChirp(r.Context(), database.CreateChirpParams{
 			Body:   cleaned,
-			UserID: userID, // uuid.UUID, no parsing needed
+			UserID: userID,
 		})
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
@@ -95,7 +91,6 @@ func ChirpsHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc
 			return
 		}
 
-		// Build response
 		resp := ChirpResponse{
 			ID:        chirp.ID.String(),
 			CreatedAt: chirp.CreatedAt,
@@ -106,6 +101,67 @@ func ChirpsHandler(queries *database.Queries, jwtSecret string) http.HandlerFunc
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(resp)
+	}
+}
+
+// GetAllChirpsHandler handles GET /api/chirps
+// GetAllChirpsHandler handles GET /api/chirps
+func GetAllChirpsHandler(DB *database.Queries) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Method not allowed"})
+			return
+		}
+
+		sortOrder := r.URL.Query().Get("sort")
+		if sortOrder == "" {
+			sortOrder = "asc"
+		}
+
+		authorIDStr := r.URL.Query().Get("author_id")
+		var chirps []database.Chirp
+		var err error
+
+		if authorIDStr != "" {
+			authorID, parseErr := uuid.Parse(authorIDStr)
+			if parseErr != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				json.NewEncoder(w).Encode(ErrorResponse{Error: "Invalid author_id"})
+				return
+			}
+			chirps, err = DB.GetChirpsByAuthorID(r.Context(), authorID)
+		} else {
+			chirps, err = DB.ListChirps(r.Context())
+		}
+
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			json.NewEncoder(w).Encode(ErrorResponse{Error: "Failed to fetch chirps"})
+			return
+		}
+
+		// Sort chirps by created_at
+		sort.Slice(chirps, func(i, j int) bool {
+			if sortOrder == "desc" {
+				return chirps[i].CreatedAt.After(chirps[j].CreatedAt)
+			}
+			return chirps[i].CreatedAt.Before(chirps[j].CreatedAt)
+		})
+
+		resp := make([]ChirpResponse, len(chirps))
+		for i, c := range chirps {
+			resp[i] = ChirpResponse{
+				ID:        c.ID.String(),
+				Body:      c.Body,
+				UserID:    c.UserID.String(),
+				CreatedAt: c.CreatedAt,
+				UpdatedAt: c.UpdatedAt,
+			}
+		}
+
+		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
 	}
 }
